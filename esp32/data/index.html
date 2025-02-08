@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset='utf-8'>
+    <meta http-equiv='X-UA-Compatible' content='IE=edge'>
+    <title>Automatic Light System v1.0</title>
+    <meta name='viewport' content='width=device-width, initial-scale=1'>
+</head>
+<body>
+    <h1>Automatic Light System</h1>
+    
+    <h2>Thresholds</h2>
+    <label for="onThreshold">On Threshold:</label>
+    <input type="number" id="onThreshold"><br>
+
+    <label for="offThreshold">Off Threshold:</label>
+    <input type="number" id="offThreshold"><br>
+
+    <label for="sunThreshold">Sun Threshold:</label>
+    <input type="number" id="sunThreshold"><br>
+
+    <label for="hysteresis">Hysteresis:</label>
+    <input type="number" id="hysteresis"><br>
+
+    <h2>Night Mode</h2>
+    <label for="nightMode">Night Mode Duration:</label>
+    <input type="number" id="nightMode"><br>
+
+    <label for="nightModeExit">Night Mode Exit Time:</label>
+    <input type="number" id="nightModeExit"><br>
+
+    <h2>Filters</h2>
+    <label for="sampleCount">Number of Samples:</label>
+    <input type="number" id="sampleCount"><br>
+
+    <label for="sampleDelay">Delay Between Samples:</label>
+    <input type="number" id="sampleDelay"><br>
+
+    <br>
+    <input type="submit" value="Submit" onclick="submitForm()">
+
+    <script>
+        function loadSettings() {
+            fetch("/getSettings")
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById("onThreshold").value = data.onThreshold;
+                document.getElementById("offThreshold").value = data.offThreshold;
+                document.getElementById("sunThreshold").value = data.sunThreshold;
+                document.getElementById("hysteresis").value = data.hysteresis;
+                document.getElementById("sampleCount").value = data.sampleCount;
+                document.getElementById("sampleDelay").value = data.sampleDelay;
+                document.getElementById("nightMode").value = data.nightMode;
+                document.getElementById("nightModeExit").value = data.nightModeExit;
+            })
+            .catch(error => console.error("Error fetching settings:", error));
+        }
+
+        function submitForm() {
+            const params = new URLSearchParams();
+            params.append("onThreshold", document.getElementById("onThreshold").value);
+            params.append("offThreshold", document.getElementById("offThreshold").value);
+            params.append("sunThreshold", document.getElementById("sunThreshold").value);
+            params.append("hysteresis", document.getElementById("hysteresis").value);
+            params.append("sampleCount", document.getElementById("sampleCount").value);
+            params.append("sampleDelay", document.getElementById("sampleDelay").value);
+            params.append("nightMode", document.getElementById("nightMode").value);
+            params.append("nightModeExit", document.getElementById("nightModeExit").value);
+
+            fetch("/submit?" + params.toString(), { method: "GET" })
+            .then(response => {
+                window.location.href = "/";
+            });
+        }
+
+        // Load settings on page load
+        window.onload = loadSettings;
+    </script>
+</body>
+</html>
