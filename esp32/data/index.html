@@ -1,80 +1,46 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <meta charset='utf-8'>
-    <meta http-equiv='X-UA-Compatible' content='IE=edge'>
-    <title>Automatic Light System v1.0</title>
-    <meta name='viewport' content='width=device-width, initial-scale=1'>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ALS</title>
 </head>
 <body>
     <h1>Automatic Light System</h1>
     
     <h2>Thresholds</h2>
-    <label for="onThreshold">On Threshold:</label>
-    <input type="number" id="onThreshold"><br>
+    <form action="/get">
+        On threshold: <input placeholder="%ON_THRESHOLD%" type="number" name="on_threshold"><br>
+        Off Threshold: <input placeholder="%OFF_THRESHOLD%" type="number" name="off_threshold"><br>
 
-    <label for="offThreshold">Off Threshold:</label>
-    <input type="number" id="offThreshold"><br>
-
-    <label for="sunThreshold">Sun Threshold:</label>
-    <input type="number" id="sunThreshold"><br>
-
-    <label for="hysteresis">Hysteresis:</label>
-    <input type="number" id="hysteresis"><br>
-
+        Sun Threshold: <input placeholder="%SUN_THRESHOLD%" type="number" name="sun_threshold"><br>
+        Hysteresis: <input placeholder="%HYSTERESIS%" type="number" name="hysteresis"><br>
+        <!-- <input type="submit" value="Submit"> -->
+    <!-- </form> -->
+        
     <h2>Night Mode</h2>
-    <label for="nightMode">Night Mode Duration:</label>
-    <input type="number" id="nightMode"><br>
-
-    <label for="nightModeExit">Night Mode Exit Time:</label>
-    <input type="number" id="nightModeExit"><br>
+    <!-- <form action="/get"> -->
+        Night Mode Duration: <input placeholder="%NIGHT_MODE%" type="number" name="night_mode"><br>
+        Night Mode Exit Time: <input placeholder="%NIGHT_MODE_OFF%" type="number" name="night_mode_off"><br>
+        <!-- <input type="submit" value="Submit"> -->
+    <!-- </form> -->
 
     <h2>Filters</h2>
-    <label for="sampleCount">Number of Samples:</label>
-    <input type="number" id="sampleCount"><br>
-
-    <label for="sampleDelay">Delay Between Samples:</label>
-    <input type="number" id="sampleDelay"><br>
-
-    <br>
-    <input type="submit" value="Submit" onclick="submitForm()">
-
+    <!-- <form action="/get"> -->
+        Number of Samples: <input placeholder="%SAMPLE_SIZE%" type="number" name="sample_size"><br>
+        Delay Between Samples: <input placeholder="%READ_DELAY%" type="number" name="read_delay"><br>
+        
+        <br>
+    <!-- </form> -->
+    <input type="submit" value="Submit">
+    <button onclick="resetDefaults()">Reset to defaults</button>
+    </form>
     <script>
-        function loadSettings() {
-            fetch("/getSettings")
-            .then(response => response.json())
-            .then(data => {
-                document.getElementById("onThreshold").value = data.onThreshold;
-                document.getElementById("offThreshold").value = data.offThreshold;
-                document.getElementById("sunThreshold").value = data.sunThreshold;
-                document.getElementById("hysteresis").value = data.hysteresis;
-                document.getElementById("sampleCount").value = data.sampleCount;
-                document.getElementById("sampleDelay").value = data.sampleDelay;
-                document.getElementById("nightMode").value = data.nightMode;
-                document.getElementById("nightModeExit").value = data.nightModeExit;
-            })
-            .catch(error => console.error("Error fetching settings:", error));
+        function resetDefaults() {
+            fetch('/reset')
+                .then(response => response.text);
         }
 
-        function submitForm() {
-            const params = new URLSearchParams();
-            params.append("onThreshold", document.getElementById("onThreshold").value);
-            params.append("offThreshold", document.getElementById("offThreshold").value);
-            params.append("sunThreshold", document.getElementById("sunThreshold").value);
-            params.append("hysteresis", document.getElementById("hysteresis").value);
-            params.append("sampleCount", document.getElementById("sampleCount").value);
-            params.append("sampleDelay", document.getElementById("sampleDelay").value);
-            params.append("nightMode", document.getElementById("nightMode").value);
-            params.append("nightModeExit", document.getElementById("nightModeExit").value);
-
-            fetch("/submit?" + params.toString(), { method: "GET" })
-            .then(response => {
-                window.location.href = "/";
-            });
-        }
-
-        // Load settings on page load
-        window.onload = loadSettings;
     </script>
 </body>
 </html>
