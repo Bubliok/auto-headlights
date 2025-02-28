@@ -8,9 +8,12 @@
 // Defaults
 #define RELAY_PIN 2
 #define LDR_PIN 34
+#define ACC_PIN 33
+#define PARKING_PIN 32
+#define BLINKER_PIN 31
 
 std::map<String, int> settings = 
-    {   
+    {
         {"on_threshold", 300},
         {"off_threshold", 500},
         {"sun_threshold", 600},
@@ -23,7 +26,9 @@ std::map<String, int> settings =
         {"welcome_lights", 15000}
     };
 
-const char* ssid = "ALS0001";
+std::map<String, int> defaults = settings;
+
+const char* ssid = "ALS01";
 const char* password = "123456789";
 
 AsyncWebServer server(80);
@@ -60,9 +65,8 @@ void setup() {
 
     server.on("/get", HTTP_GET, savePreferences);
     
-    server.on("/reset", HTTP_GET, [](AsyncWebServerRequest *request) {
+    server.on("/reset", HTTP_POST, [](AsyncWebServerRequest *request) {
         resetToDefaults();
-        loadPreferences();
 
         request->send(200, "text/plain", "Settings reset to defaults.");
     });
@@ -92,8 +96,10 @@ void loadPreferences() {
 }
 
 void resetToDefaults() {
-    for (auto &pair : settings) {
+    for (auto &pair : defaults) {
         prefs.putInt(pair.first.c_str(), pair.second);
     }
+    loadPreferences();
     Serial.println("Defaults loaded.");
 }
+

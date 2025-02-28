@@ -9,7 +9,7 @@
     <h1>Automatic Light System</h1>
     
     <h2>Thresholds</h2>
-    <form action="/get">
+    <form action="/get" method="get">
         On threshold: <input value="%on_threshold%" type="number" name="on_threshold" onfocus="this.select()"><br>
         Off Threshold: <input value="%off_threshold%" type="number" name="off_threshold" onfocus="this.select()"><br>
 
@@ -35,13 +35,16 @@
         
         <br>
     <!-- </form> -->
-    <input type="submit" value="Submit">
-    <button onclick="resetDefaults()">Reset to defaults</button>
-    </form>
+    <input type="submit" value="Submit" onclick="location.reload()">
+</form>
+
+<button onclick="resetDefaults()">Reset to defaults</button>
+    
     <script>
         function resetDefaults() {
-            fetch('/reset')
-                .then(response => response.text);
+            fetch('/reset', { method: 'POST' })
+                .then(response => response.text)
+                .then(() => location.reload());
         }
 
     </script>
