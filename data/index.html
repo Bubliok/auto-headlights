@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ALS</title>
+</head>
+<body>
+    <h1>Automatic Light System</h1>
+    
+    <h2>Thresholds</h2>
+    <form action="/get" method="get">
+        On threshold: <input value="%on_threshold%" type="number" name="on_threshold" onfocus="this.select()"><br>
+        Off Threshold: <input value="%off_threshold%" type="number" name="off_threshold" onfocus="this.select()"><br>
+
+        Sun Threshold: <input value="%sun_threshold%" type="number" name="sun_threshold" onfocus="this.select()"><br>
+        Hysteresis: <input value="%hysteresis%" type="number" name="hysteresis" onfocus="this.select()"><br>
+        
+    <h2>Night Mode</h2>
+
+        Night Mode Duration: <input value="%night_mode%" type="number" name="night_mode" onfocus="this.select()"><br>
+        Night Mode Exit Time: <input value="%night_mode_off%" type="number" name="night_mode_off" onfocus="this.select()"><br>
+
+        Goodbye lights: <input value="%goodbye_lights%" type="number" name="goodbye_lights" onfocus="this.select()"><br>
+        Welcome lights: <input value="%welcome_lights%" type="number" name="welcome_lights" onfocus="this.select()"><br>
+
+    <h2>Filters</h2>
+
+        Number of Samples: <input value="%sample_count%" type="number" name="sample_count" onfocus="this.select()"><br>
+        Delay Between Samples: <input value="%read_delay%" type="number" name="read_delay" onfocus="this.select()"><br>
+        
+        <br>
+    <input type="submit" value="Submit" onclick="location.reload()">
+</form>
+
+<a href="/webserial"><button>Web Serial Log</button></a>
+
+<button onclick="resetDefaults()">Reset to defaults</button>
+    
+    <script>
+        function resetDefaults() {
+            fetch('/reset', { method: 'POST' })
+                .then(response => response.text)
+                .then(() => location.reload());
+        }
+
+    </script>
+</body>
+</html>
