@@ -8,23 +8,23 @@
 #include <map>
 
 // Defaults
-#define HEADLIGHT_PIN 12
+#define HEADLIGHT_PIN 25
 #define LDR_PIN 34
-#define ACC_PIN 33
+#define IGN_PIN 33
 #define PARKING_PIN 32
 #define UNLOCK_PIN 35
 
 std::map<String, int> settings = 
     {
-        {"on_threshold", 300},
-        {"off_threshold", 500},
+        {"on_threshold", 1700},
+        {"off_threshold", 2000},
         {"sun_threshold", 600},
         {"hysteresis", 50},
-        {"sample_count", 10},
-        {"read_delay", 10},
+        {"sample_count", 25},
+        {"read_delay", 200},
         {"night_mode", 300000},
         {"night_mode_off", 1800000},
-        {"goodbye_lights", 15000},
+        {"goodbye_lights", 30000},
         {"welcome_lights", 15000}
     };
 
@@ -38,6 +38,11 @@ unsigned long darkStartTime = 0;
 unsigned long brightStartTime = 0;
 bool isNightMode = false;
 
+bool ignWasOn = false;
+unsigned long ignOffTime = 0;
+bool ignTimeoutActive = false;
+bool ignOverride = false;
+
 AsyncWebServer server(80);
 AsyncWebSerial webSerial;
 
@@ -47,6 +52,7 @@ void loadPreferences();
 void savePreferences(AsyncWebServerRequest *request);
 void resetToDefaults();
 int readLDR();
+void goodbyeLights(int lightLevel);
 bool checkLightCondition(int lightLevel);
 void updateLights(bool shouldBeOn);
 void debug(int lightLevel);
@@ -58,31 +64,66 @@ String processor(const String& var){
     return String();
   }
   
-int readLDR() { // reads the light sensor value and returns the average of the last n samples
-  static std::vector<int> samples(settings["sample_count"], 0);
-  static int i = 0;
-  static long sum = 0;
+  int readLDR() { // reads the light sensor value and returns the average of the last n samples
+    static std::vector<int> samples(settings["sample_count"], 0);
+    static int i = 0;
+    static long sum = 0;
+    
+    if (samples.size() != settings["sample_count"]) {
+      samples.assign(settings["sample_count"], 0);
+      sum = 0;
+      i = 0;
+    }
+    
+    sum -= samples[i];
+    samples[i] = analogRead(LDR_PIN);
+    sum += samples[i];
+    i = (i + 1) % settings["sample_count"];
+    
+    delay(settings["read_delay"]);
+    
+    return sum / settings["sample_count"];
+  }
+
+  void goodbyeLights(int lightLevel) { // monitors the IGN state and turns off the lights after a delay
+    bool ignState = digitalRead(IGN_PIN);
   
-  if (samples.size() != settings["sample_count"]) {
-    samples.assign(settings["sample_count"], 0);
-    sum = 0;
-    i = 0;
+    if (ignState) {
+        ignWasOn = true;
+        ignTimeoutActive = false;
+        ignOverride = false; 
+    } else {
+        if (ignWasOn) { 
+            ignWasOn = false;
+            ignOffTime = millis();
+            ignTimeoutActive = true;
+            Serial.println("ACC turned off, activating goodbye lights...");
+            webSerial.println("ACC turned off, activating goodbye lights...");
+        }
+  
+        if (ignTimeoutActive) {
+            if (millis() - ignOffTime < settings["goodbye_lights"]) {
+              if (lightLevel < settings["on_threshold"]) {
+                updateLights(true);
+              } else {
+               digitalWrite(PARKING_PIN, HIGH);
+              }
+            } else {
+                ignTimeoutActive = false;
+                ignOverride = true;
+                updateLights(false);
+                digitalWrite(PARKING_PIN, LOW);
+                Serial.println("Goodbye delay over, turning off lights.");
+                webSerial.println("Goodbye delay over, turning off lights.");
+            }
+        }
+    }
   }
   
-  sum -= samples[i];
-  samples[i] = analogRead(LDR_PIN);
-  sum += samples[i];
-  i = (i + 1) % settings["sample_count"];
-  
-  delay(settings["read_delay"]);
-  
-  return sum / settings["sample_count"];
-}
-
-bool checkLightCondition(int lightLevel){
-  unsigned long currentTime = millis();
-  
-  if (lightLevel < settings["on_threshold"]) { //enters night mode if light level is below the on threshold for n seconds
+  bool checkLightCondition(int lightLevel){
+    unsigned long currentTime = millis();
+    
+    if (lightLevel < settings["on_threshold"]) { //enters night mode if light level is below the on threshold for n seconds
     brightStartTime = 0;
     if (darkStartTime == 0) darkStartTime = currentTime;
     
@@ -115,35 +156,56 @@ bool checkLightCondition(int lightLevel){
     } else {
       brightStartTime = 0;
     }
-    return !isNightMode ? false : lightsOn;
+    return !isNightMode ? false : lightsOn; 
   }
 }
 
 void updateLights(bool shouldBeOn) {
-  if (shouldBeOn != lightsOn) {
-    digitalWrite(HEADLIGHT_PIN, shouldBeOn ? HIGH : LOW);
-    lightsOn = shouldBeOn;
-    Serial.println(lightsOn ? "Lights On" : "Lights Off");
-    webSerial.println(lightsOn ? "Lights On" : "Lights Off");
+  if (ignOverride && shouldBeOn) {
+      Serial.println("IGN off.");
+      webSerial.println("IGN off.");
+      return; 
+  }
+
+  if (shouldBeOn) {
+      if (!lightsOn) {
+          digitalWrite(HEADLIGHT_PIN, HIGH);
+          digitalWrite(PARKING_PIN, HIGH);
+          lightsOn = true;
+          Serial.println("Lights On");
+          webSerial.println("Lights On");
+      }
+  } else {
+      if (lightsOn) {
+          digitalWrite(HEADLIGHT_PIN, LOW);
+          digitalWrite(PARKING_PIN, LOW);
+          lightsOn = false;
+          Serial.println("Lights Off");
+          webSerial.println("Lights Off");
+      }
   }
 }
 
 void debug(int lightLevel) {
   Serial.print("Light Level: ");
   Serial.println(lightLevel);
-  Serial.print("Night Mode: ");
-  Serial.println(isNightMode ? "Yes" : "No");
-  Serial.print("Lights are: ");
-  Serial.println(lightsOn ? "Yes" : "No");
-  Serial.println();
+  // Serial.print("Night Mode: ");
+  // Serial.println(isNightMode ? "Yes" : "No");
+  // Serial.print("Lights are: ");
+  // Serial.println(lightsOn ? "Yes" : "No");
+  // Serial.println();
   
   webSerial.print("Light Level: ");
   webSerial.println(lightLevel);
-  webSerial.print("Night Mode: ");
-  webSerial.println(isNightMode ? "Yes" : "No");
-  webSerial.print("Lights are: ");
-  webSerial.println(lightsOn ? "Yes" : "No");
-  webSerial.println();
+  // webSerial.print("Night Mode: ");
+  // webSerial.println(isNightMode ? "Yes" : "No");
+  // webSerial.print("Lights are: ");
+  // webSerial.println(lightsOn ? "Yes" : "No");
+  // webSerial.println();
+  // bool accState = digitalRead(ACC_PIN);
+  // Serial.print("ACC State: ");
+  // Serial.println(accState);
+
 }
 
 // -------------------------------------------------------------
@@ -183,11 +245,12 @@ void setup() {
 
   pinMode(LDR_PIN, INPUT);
   pinMode(UNLOCK_PIN, INPUT);
-  pinMode(ACC_PIN, INPUT);
+  pinMode(IGN_PIN, INPUT_PULLDOWN);
   pinMode(HEADLIGHT_PIN, OUTPUT);
   pinMode(PARKING_PIN, OUTPUT);
 
-  digitalWrite(HEADLIGHT_PIN, HIGH);
+  digitalWrite(HEADLIGHT_PIN, LOW);
+  digitalWrite(PARKING_PIN, LOW);
 
   WiFi.softAP(ssid, password);
   Serial.print("AP IP address: ");
@@ -217,9 +280,12 @@ void setup() {
 void loop() {
   int lightLevel = readLDR();
   bool shouldBeOn = checkLightCondition(lightLevel);
+
+  goodbyeLights(lightLevel);
   updateLights(shouldBeOn);
+
 
   webSerial.loop();
   debug(lightLevel);
-  delay(500);
+  delay(200);
 }
