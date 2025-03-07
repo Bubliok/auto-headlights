@@ -238,6 +238,10 @@ void setup() {
   server.on("/", HTTP_GET, [](AsyncWebServerRequest * request) {
       request->send(LittleFS, "/index.html", String(), false, processor);
   });
+
+  server.on("/styles.css", HTTP_GET, [](AsyncWebServerRequest *request) {
+      request->send(LittleFS, "/styles.css", "text/css");
+  });
   
   server.on("/get", HTTP_GET, savePreferences);
   
