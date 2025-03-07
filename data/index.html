@@ -4,46 +4,242 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ALS</title>
-</head>
-<body>
-    <h1>Automatic Light System</h1>
-    
-    <h2>Thresholds</h2>
-    <form action="/get" method="get">
-        On threshold: <input value="%on_threshold%" type="number" name="on_threshold" onfocus="this.select()"><br>
-        Off Threshold: <input value="%off_threshold%" type="number" name="off_threshold" onfocus="this.select()"><br>
-
-        Sun Threshold: <input value="%sun_threshold%" type="number" name="sun_threshold" onfocus="this.select()"><br>
-        Hysteresis: <input value="%hysteresis%" type="number" name="hysteresis" onfocus="this.select()"><br>
-        
-    <h2>Night Mode</h2>
-
-        Night Mode Duration: <input value="%night_mode%" type="number" name="night_mode" onfocus="this.select()"><br>
-        Night Mode Exit Time: <input value="%night_mode_off%" type="number" name="night_mode_off" onfocus="this.select()"><br>
-
-        Goodbye lights: <input value="%goodbye_lights%" type="number" name="goodbye_lights" onfocus="this.select()"><br>
-        Welcome lights: <input value="%welcome_lights%" type="number" name="welcome_lights" onfocus="this.select()"><br>
-
-    <h2>Filters</h2>
-
-        Number of Samples: <input value="%sample_count%" type="number" name="sample_count" onfocus="this.select()"><br>
-        Delay Between Samples: <input value="%read_delay%" type="number" name="read_delay" onfocus="this.select()"><br>
-        
-        <br>
-    <input type="submit" value="Submit" onclick="location.reload()">
-</form>
-
-<a href="/webserial"><button>Web Serial Log</button></a>
-
-<button onclick="resetDefaults()">Reset to defaults</button>
-    
-    <script>
-        function resetDefaults() {
-            fetch('/reset', { method: 'POST' })
-                .then(response => response.text)
-                .then(() => location.reload());
+    <style>
+        :root {
+            --primary-color: #9cc7ff;
+            --secondary-color: #9ad2f8;
+            --background-color: #2d2d2d;
+            --card-background: #414141;
+            --text-color: #ffffff;
+            --border-radius: 8px;
+            --box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
 
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            line-height: 1.6;
+            background-color: var(--background-color);
+            color: var(--text-color);
+            padding: 20px;
+        }
+
+        h1 {
+            text-align: center;
+            color: var(--primary-color);
+            margin-bottom: 30px;
+            font-size: 2.5em;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .card {
+            background: var(--card-background);
+            border-radius: var(--border-radius);
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: var(--box-shadow);
+        }
+
+        h2 {
+            color: var(--primary-color);
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid var(--secondary-color);
+        }
+
+        .input-group {
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+        }
+
+        .input-group label {
+            flex: 1;
+            margin-right: 10px;
+        }
+
+        input[type="number"] {
+            width: 120px;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        button, input[type="submit"] {
+            background-color: var(--secondary-color);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background-color 0.3s ease;
+        }
+
+        button:hover, input[type="submit"]:hover {
+            background-color: #2980b9;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin-top: 20px;
+        }
+
+        .status-card {
+            text-align: center;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+
+        .status-indicator {
+            display: inline-flex;
+            align-items: center;
+            padding: 10px 20px;
+            border-radius: var(--border-radius);
+            font-weight: bold;
+            margin: 10px;
+            min-width: 150px;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .status-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+
+        .status-on {
+            background-color: #2ecc71;
+            color: #fff;
+        }
+
+        .status-off {
+            background-color: #e74c3c;
+            color: #fff;
+        }
+
+        #reset-btn {
+            background-color: #e74c3c;
+        }
+
+        #reset-btn:hover {
+            background-color: #c0392b;
+        }
+
+        @media (max-width: 600px) {
+            .input-group {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .input-group label {
+                margin-bottom: 5px;
+            }
+
+            input[type="number"] {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Automatic Light System</h1>
+        
+        <div class="card status-card">
+            <h2>System Status</h2>
+            <div class="status-indicator" id="ign-status">
+                IGN Status: <span class="status-dot"></span>
+                <span class="status-text">OFF</span>
+            </div>
+        </div>
+
+        <form action="/get" method="get">
+            <div class="card">
+                <h2>Thresholds</h2>
+                <div class="input-group">
+                    <label for="on_threshold">On threshold:</label>
+                    <input id="on_threshold" value="%on_threshold%" type="number" name="on_threshold" onfocus="this.select()">
+                </div>
+                <div class="input-group">
+                    <label for="off_threshold">Off Threshold:</label>
+                    <input id="off_threshold" value="%off_threshold%" type="number" name="off_threshold" onfocus="this.select()">
+                </div>
+                <div class="input-group">
+                    <label for="hysteresis">Hysteresis:</label>
+                    <input id="hysteresis" value="%hysteresis%" type="number" name="hysteresis" onfocus="this.select()">
+                </div>
+            </div>
+
+            <div class="card">
+                <h2>Goodbye/Welcome lights</h2>
+                <div class="input-group">
+                    <label for="goodbye_lights">Goodbye lights (ms):</label>
+                    <input id="goodbye_lights" value="%goodbye_lights%" type="number" name="goodbye_lights" onfocus="this.select()">
+                </div>
+                <div class="input-group">
+                    <label for="welcome_lights">Welcome lights (ms):</label>
+                    <input id="welcome_lights" value="%welcome_lights%" type="number" name="welcome_lights" onfocus="this.select()">
+                </div>
+            </div>
+
+            <div class="card">
+                <h2>Filters</h2>
+                <div class="input-group">
+                    <label for="sample_count">Number of Samples:</label>
+                    <input id="sample_count" value="%sample_count%" type="number" name="sample_count" onfocus="this.select()">
+                </div>
+                <div class="input-group">
+                    <label for="read_delay">Delay Between Samples (ms):</label>
+                    <input id="read_delay" value="%read_delay%" type="number" name="read_delay" onfocus="this.select()">
+                </div>
+            </div>
+
+            <div class="button-group">
+                <input type="submit" value="Save Settings" onclick="location.reload()">
+                <a href="/webserial"><button type="button">Web Serial Log</button></a>
+                <button type="button" id="reset-btn" onclick="resetDefaults()">Reset to defaults</button>
+            </div>
+        </form>
+    </div>
+    
+    <script>
+        function updateIgnStatus() {
+            fetch('/ignstatus')
+                .then(response => response.json())
+                .then(data => {
+                    const statusElement = document.getElementById('ign-status');
+                    const statusDot = statusElement.querySelector('.status-dot');
+                    const statusText = statusElement.querySelector('.status-text');
+                    
+                    statusElement.className = 'status-indicator ' + (data.status ? 'status-on' : 'status-off');
+                    statusText.textContent = data.status ? 'ON' : 'OFF';
+                })
+                .catch(error => console.error('Error:', error));
+        }
+
+        setInterval(updateIgnStatus, 1000);
+        updateIgnStatus();
+
+        function resetDefaults() {
+            fetch('/reset', { method: 'POST' })
+                .then(response => response.text())
+                .then(() => location.reload());
+        }
     </script>
 </body>
 </html>
