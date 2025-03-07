@@ -35,6 +35,7 @@ unsigned long ignOffTime = 0;
 bool ignTimeoutActive = false;
 bool ignOverride = false;
 bool ignWasOn = false;
+bool manualOverride = false;
 
 AsyncWebServer server(80);
 AsyncWebSerial webSerial;
@@ -135,6 +136,11 @@ String processor(const String& var){
   }
 
 void updateLights(bool shouldBeOn) {
+  if (manualOverride) {
+    webSerial.println("Manual override active.");
+    return;
+  }
+
   if (ignOverride && shouldBeOn) {
       Serial.println("IGN off.");
       webSerial.println("IGN off.");
@@ -159,6 +165,38 @@ void updateLights(bool shouldBeOn) {
       }
   }
 }
+
+void setManualLights(bool headlights, bool parking) {
+  if (!manualOverride) return;
+
+  digitalWrite(HEADLIGHT_PIN, headlights ? HIGH : LOW);
+  digitalWrite(PARKING_PIN, parking ? HIGH : LOW);
+
+  Serial.print("Manual Control - Headlights: ");
+  Serial.print(headlights ? "ON" : "OFF");
+  Serial.print(", Parking: ");
+  Serial.println(parking ? "ON" : "OFF");
+
+  webSerial.print("Manual Control - Headlights: ");
+  webSerial.print(headlights ? "ON" : "OFF");
+  webSerial.print(", Parking: ");
+  webSerial.println(parking ? "ON" : "OFF");
+}
+
+void setManualOverride(bool enable) {
+  manualOverride = enable;
+
+  if (!enable) {
+      // When exiting manual mode, turn off lights and return to automatic control
+      digitalWrite(HEADLIGHT_PIN, LOW);
+      digitalWrite(PARKING_PIN, LOW);
+      Serial.println("Exiting Manual Mode, Resetting Lights");
+      webSerial.println("Exiting Manual Mode, Resetting Lights");
+      updateLights(false); // Immediately apply automatic logic
+  }
+}
+
+
 
 void debug(int lightLevel) {
   Serial.print("Light Level: ");
@@ -254,6 +292,39 @@ void setup() {
     bool ignState = digitalRead(IGN_PIN);
     String response = "{\"status\":" + String(ignState ? "true" : "false") + "}";
     request->send(200, "application/json", response);
+  });
+  
+  server.on("/manual-mode", HTTP_POST, [](AsyncWebServerRequest *request) {
+    if (request->hasParam("enabled", true)) {
+      bool enabled = request->getParam("enabled", true)->value() == "true";
+      setManualOverride(enabled);
+      String response = "{\"success\":true,\"manualOverride\":" + String(enabled ? "true" : "false") + "}";
+      request->send(200, "application/json", response);
+    } else {
+      request->send(400, "application/json", "{\"success\":false}");
+    }
+  });
+
+  server.on("/headlights-toggle", HTTP_POST, [](AsyncWebServerRequest *request) {
+    if (manualOverride) {
+      bool currentState = digitalRead(HEADLIGHT_PIN);
+      setManualLights(!currentState, digitalRead(PARKING_PIN));
+      String response = "{\"success\":true,\"lightsOn\":" + String(!currentState ? "true" : "false") + "}";
+      request->send(200, "application/json", response);
+    } else {
+      request->send(400, "application/json", "{\"success\":false,\"message\":\"Manual override not enabled\"}");
+    }
+  });
+
+  server.on("/parkinglights-toggle", HTTP_POST, [](AsyncWebServerRequest *request) {
+    if (manualOverride) {
+      bool currentState = digitalRead(PARKING_PIN);
+      setManualLights(digitalRead(HEADLIGHT_PIN), !currentState);
+      String response = "{\"success\":true,\"parkingLightsOn\":" + String(!currentState ? "true" : "false") + "}";
+      request->send(200, "application/json", response);
+    } else {
+      request->send(400, "application/json", "{\"success\":false,\"message\":\"Manual override not enabled\"}");
+    }
   });
   
   webSerial.begin(&server);

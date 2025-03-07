@@ -16,6 +16,18 @@
                 IGN Status: <span class="status-dot"></span>
                 <span class="status-text">OFF</span>
             </div>
+
+            <!-- manual control -->
+            <div class="manual-control-container">
+                <label class="switch">
+                    <input type="checkbox" id="manual-toggle" onchange="toggleManualControl(this.checked)">
+                    <span class="slider round"></span>
+                </label>
+                <div class="manual-control" id="manual-control">
+                    <button id="headlights-toggle" disabled onclick="toggleHeadlights()">Headlights OFF</button>
+                    <button id="parkinglights-toggle" disabled onclick="toggleParkingLights()">Parking lights OFF</button>
+                </div>
+            </div>
         </div>
 
         <form action="/get" method="get">
@@ -68,16 +80,77 @@
     </div>
     
     <script>
+        let lightsOn = false;
+        let parkingLightsOn = false;
+
         function updateIgnStatus() {
             fetch('/ignstatus')
                 .then(response => response.json())
                 .then(data => {
                     const statusElement = document.getElementById('ign-status');
-                    const statusDot = statusElement.querySelector('.status-dot');
                     const statusText = statusElement.querySelector('.status-text');
+                    const headlightsToggle = document.getElementById('headlights-toggle');
+                    const parkingLightsToggle = document.getElementById('parkinglights-toggle');
                     
                     statusElement.className = 'status-indicator ' + (data.status ? 'status-on' : 'status-off');
                     statusText.textContent = data.status ? 'ON' : 'OFF';
+                    
+                    // Update button states
+                    lightsOn = data.status;
+                    headlightsToggle.textContent = lightsOn ? 'Headlights ON' : 'Headlights OFF';
+                    headlightsToggle.className = lightsOn ? 'lights-on' : '';
+                    
+                    parkingLightsToggle.textContent = parkingLightsOn ? 'Parking Lights ON' : 'Parking Lights OFF';
+                    parkingLightsToggle.className = parkingLightsOn ? 'lights-on' : '';
+                })
+                .catch(error => console.error('Error:', error));
+        }
+
+        function toggleManualControl(enabled) {
+            const headlightsToggle = document.getElementById('headlights-toggle');
+            const parkingLightsToggle = document.getElementById('parkinglights-toggle');
+            
+            headlightsToggle.disabled = !enabled;
+            parkingLightsToggle.disabled = !enabled;
+            
+            fetch('/manual-mode', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ enabled: enabled })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (!data.success) {
+                    // If manual mode failed, disable buttons
+                    headlightsToggle.disabled = true;
+                    parkingLightsToggle.disabled = true;
+                }
+            })
+            .catch(error => console.error('Error:', error));
+        }
+
+        function toggleHeadlights() {
+            fetch('/headlights-toggle', { method: 'POST' })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        lightsOn = data.lightsOn;
+                        updateIgnStatus();
+                    }
+                })
+                .catch(error => console.error('Error:', error));
+        }
+
+        function toggleParkingLights() {
+            fetch('/parkinglights-toggle', { method: 'POST' })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        parkingLightsOn = data.parkingLightsOn;
+                        updateIgnStatus();
+                    }
                 })
                 .catch(error => console.error('Error:', error));
         }
