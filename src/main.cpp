@@ -18,12 +18,9 @@ std::map<String, int> settings =
     {
         {"on_threshold", 1700},
         {"off_threshold", 2000},
-        {"sun_threshold", 600},
-        {"hysteresis", 50},
+        {"hysteresis", 300},
         {"sample_count", 25},
         {"read_delay", 200},
-        {"night_mode", 300000},
-        {"night_mode_off", 1800000},
         {"goodbye_lights", 30000},
         {"welcome_lights", 15000}
     };
@@ -34,14 +31,10 @@ const char* ssid = "ALS01";
 const char* password = "123456789";
 
 bool lightsOn = false;
-unsigned long darkStartTime = 0;
-unsigned long brightStartTime = 0;
-bool isNightMode = false;
-
-bool ignWasOn = false;
 unsigned long ignOffTime = 0;
 bool ignTimeoutActive = false;
 bool ignOverride = false;
+bool ignWasOn = false;
 
 AsyncWebServer server(80);
 AsyncWebSerial webSerial;
@@ -62,7 +55,7 @@ String processor(const String& var){
         return String(settings[var]);
     }
     return String();
-  }
+}
   
   int readLDR() { // reads the light sensor value and returns the average of the last n samples
     static std::vector<int> samples(settings["sample_count"], 0);
@@ -122,43 +115,24 @@ String processor(const String& var){
   
   bool checkLightCondition(int lightLevel){
     unsigned long currentTime = millis();
+    static unsigned long brightStartTime = 0;
+
     
-    if (lightLevel < settings["on_threshold"]) { //enters night mode if light level is below the on threshold for n seconds
-    brightStartTime = 0;
-    if (darkStartTime == 0) darkStartTime = currentTime;
-    
-    if (!isNightMode && (currentTime - darkStartTime >= settings["night_mode"])) {
-      isNightMode = true;
-      Serial.println("Night Mode Activated");
-      webSerial.println("Night Mode Activated");
-    }
-    return true;
-  } else {
-    darkStartTime = 0;
-    
-    if (lightLevel >= settings["sun_threshold"]) { //exit night mode if sunlight is detected
-      if (isNightMode) {
-        isNightMode = false;
-        Serial.println("Sunlight Detected - Exiting Night Mode");
-        webSerial.println("Sunlight Detected - Exiting Night Mode");
-      }
-      return false;
-    }
-    
-    if (lightLevel > settings["off_threshold"]) { //exits night mode is the light level is above the off threshold for n seconds
-      if (brightStartTime == 0) brightStartTime = currentTime;
-      
-      if (isNightMode && (currentTime - brightStartTime >= settings["night_mode_off"])) {
-        isNightMode = false;
-        Serial.println("Exiting Night Mode...");
-        webSerial.println("Exiting Night Mode...");
-      }
-    } else {
+    if (lightLevel < settings["on_threshold"]) {
       brightStartTime = 0;
-    }
-    return !isNightMode ? false : lightsOn; 
+      return true;
+    } else if (lightLevel > settings["off_threshold"]) {
+      if (brightStartTime == 0) {
+          brightStartTime = currentTime;
+      }
+      if (currentTime - brightStartTime >= 3000) {
+          return false;
+      }
+      return true;
   }
-}
+  brightStartTime = 0;
+  return lightsOn;
+  }
 
 void updateLights(bool shouldBeOn) {
   if (ignOverride && shouldBeOn) {
@@ -270,6 +244,12 @@ void setup() {
   server.on("/reset", HTTP_POST, [](AsyncWebServerRequest *request) {
     resetToDefaults();
     request->send(200, "text/plain", "Settings reset to defaults.");
+  });
+  
+  server.on("/ignstatus", HTTP_GET, [](AsyncWebServerRequest *request) {
+    bool ignState = digitalRead(IGN_PIN);
+    String response = "{\"status\":" + String(ignState ? "true" : "false") + "}";
+    request->send(200, "application/json", response);
   });
   
   webSerial.begin(&server);
