@@ -28,7 +28,6 @@
                     <button id="parkinglights-toggle" disabled onclick="toggleParkingLights()">Parking lights OFF</button>
                 </div>
             </div>
-        </div>
 
         <form action="/get" method="get">
             <div class="card">
@@ -80,6 +79,10 @@
     </div>
     
     <script>
+
+document.getElementById('manual-toggle').addEventListener('change', function () {
+    console.log("Toggle changed:", this.checked);
+});
         let lightsOn = false;
         let parkingLightsOn = false;
 
@@ -100,6 +103,7 @@
                     headlightsToggle.textContent = lightsOn ? 'Headlights ON' : 'Headlights OFF';
                     headlightsToggle.className = lightsOn ? 'lights-on' : '';
                     
+                    parkingLightsOn = data.status;
                     parkingLightsToggle.textContent = parkingLightsOn ? 'Parking Lights ON' : 'Parking Lights OFF';
                     parkingLightsToggle.className = parkingLightsOn ? 'lights-on' : '';
                 })
@@ -107,53 +111,50 @@
         }
 
         function toggleManualControl(enabled) {
-            const headlightsToggle = document.getElementById('headlights-toggle');
-            const parkingLightsToggle = document.getElementById('parkinglights-toggle');
-            
+    const headlightsToggle = document.getElementById('headlights-toggle');
+    const parkingLightsToggle = document.getElementById('parkinglights-toggle');
+    const manualToggle = document.getElementById('manual-toggle');
+
+    fetch(`/manual-mode?enabled=${enabled}`, { method: 'POST' })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
             headlightsToggle.disabled = !enabled;
             parkingLightsToggle.disabled = !enabled;
-            
-            fetch('/manual-mode', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ enabled: enabled })
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (!data.success) {
-                    // If manual mode failed, disable buttons
-                    headlightsToggle.disabled = true;
-                    parkingLightsToggle.disabled = true;
-                }
-            })
-            .catch(error => console.error('Error:', error));
+        } else {
+            // Revert toggle if server refused
+            manualToggle.checked = !enabled;
         }
+    });
+}
 
-        function toggleHeadlights() {
-            fetch('/headlights-toggle', { method: 'POST' })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        lightsOn = data.lightsOn;
-                        updateIgnStatus();
-                    }
-                })
-                .catch(error => console.error('Error:', error));
+function toggleHeadlights() {
+    const btn = document.getElementById('headlights-toggle');
+    const newState = btn.textContent.includes("OFF");
+    
+    fetch('/headlights-toggle', { method: 'POST' })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            btn.textContent = data.lightsOn ? 'Headlights ON' : 'Headlights OFF';
+            btn.classList.toggle('lights-on', data.lightsOn);
         }
+    });
+}
 
-        function toggleParkingLights() {
-            fetch('/parkinglights-toggle', { method: 'POST' })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        parkingLightsOn = data.parkingLightsOn;
-                        updateIgnStatus();
-                    }
-                })
-                .catch(error => console.error('Error:', error));
+function toggleParkingLights() {
+    const btn = document.getElementById('parkinglights-toggle');
+    const newState = btn.textContent.includes("OFF");
+    
+    fetch('/parkinglights-toggle', { method: 'POST' })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            btn.textContent = data.parkingLightsOn ? 'Parking Lights ON' : 'Parking Lights OFF';
+            btn.classList.toggle('lights-on', data.parkingLightsOn);
         }
+    });
+}
 
         setInterval(updateIgnStatus, 1000);
         updateIgnStatus();
