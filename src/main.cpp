@@ -5,6 +5,7 @@
 #include <LittleFS.h>
 #include <Preferences.h>
 #include <AsyncWebSerial.h>
+#include <ElegantOTA.h>
 #include <map>
 
 // Defaults
@@ -114,26 +115,24 @@ String processor(const String& var){
     }
   }
   
-  bool checkLightCondition(int lightLevel){
-    unsigned long currentTime = millis();
+  bool checkLightCondition(int lightLevel) {
     static unsigned long brightStartTime = 0;
+    unsigned long currentTime = millis();
 
-    
     if (lightLevel < settings["on_threshold"]) {
-      brightStartTime = 0;
-      return true;
+        brightStartTime = 0;
+        return true;
     } else if (lightLevel > settings["off_threshold"]) {
-      if (brightStartTime == 0) {
-          brightStartTime = currentTime;
-      }
-      if (currentTime - brightStartTime >= 3000) {
-          return false;
-      }
-      return true;
-  }
-  brightStartTime = 0;
-  return lightsOn;
-  }
+        if (brightStartTime == 0) {
+            brightStartTime = currentTime;
+        }
+        if (currentTime - brightStartTime >= 3000) {
+            return false;
+        }
+        return lightsOn;
+    }
+    return lightsOn;
+}
 
 void updateLights(bool shouldBeOn) {
   if (manualOverride) {
@@ -141,6 +140,14 @@ void updateLights(bool shouldBeOn) {
     return;
   }
 
+  // If IGN is off and we're not in goodbye lights mode, don't turn lights on
+  if (!digitalRead(IGN_PIN) && !ignTimeoutActive && shouldBeOn) {
+    Serial.println("IGN off, lights off.");
+    webSerial.println("IGN off, lights off.");
+    return;
+  }
+
+  // If IGN override is active and trying to turn lights on, don't
   if (ignOverride && shouldBeOn) {
       Serial.println("IGN off.");
       webSerial.println("IGN off.");
@@ -263,6 +270,11 @@ void setup() {
 
   digitalWrite(HEADLIGHT_PIN, LOW);
   digitalWrite(PARKING_PIN, LOW);
+  lightsOn = false;
+  manualOverride = false;
+  ignOverride = false;
+  ignTimeoutActive = false;
+  ignWasOn = false;
 
   WiFi.softAP(ssid, password);
   Serial.print("AP IP address: ");
@@ -295,13 +307,20 @@ void setup() {
   });
   
   server.on("/manual-mode", HTTP_POST, [](AsyncWebServerRequest *request) {
-    if (request->hasParam("enabled", true)) {
-      bool enabled = request->getParam("enabled", true)->value() == "true";
-      setManualOverride(enabled);
-      String response = "{\"success\":true,\"manualOverride\":" + String(enabled ? "true" : "false") + "}";
-      request->send(200, "application/json", response);
+    if (request->hasParam("enabled")) {
+        bool enabled = request->getParam("enabled")->value() == "true";
+        manualOverride = enabled;
+        
+        if (!enabled) {
+            // Return to automatic control
+            digitalWrite(HEADLIGHT_PIN, LOW);
+            digitalWrite(PARKING_PIN, LOW);
+        }
+        
+        request->send(200, "application/json", 
+            String("{\"success\":") + (enabled ? "true" : "false") + "}");
     } else {
-      request->send(400, "application/json", "{\"success\":false}");
+        request->send(400, "text/plain", "Bad request");
     }
   });
 
@@ -326,10 +345,10 @@ void setup() {
       request->send(400, "application/json", "{\"success\":false,\"message\":\"Manual override not enabled\"}");
     }
   });
-  
   webSerial.begin(&server);
   server.begin();
   Serial.println("Server Started");
+  ElegantOTA.begin(&server);
 }
 
 void loop() {
@@ -339,7 +358,7 @@ void loop() {
   goodbyeLights(lightLevel);
   updateLights(shouldBeOn);
 
-
+  ElegantOTA.loop();
   webSerial.loop();
   debug(lightLevel);
   delay(200);
