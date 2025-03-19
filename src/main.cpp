@@ -140,14 +140,12 @@ void updateLights(bool shouldBeOn) {
     return;
   }
 
-  // If IGN is off and we're not in goodbye lights mode, don't turn lights on
   if (!digitalRead(IGN_PIN) && !ignTimeoutActive && shouldBeOn) {
     Serial.println("IGN off, lights off.");
     webSerial.println("IGN off, lights off.");
     return;
   }
 
-  // If IGN override is active and trying to turn lights on, don't
   if (ignOverride && shouldBeOn) {
       Serial.println("IGN off.");
       webSerial.println("IGN off.");
@@ -193,13 +191,15 @@ void setManualLights(bool headlights, bool parking) {
 void setManualOverride(bool enable) {
   manualOverride = enable;
 
-  if (!enable) {
-      // When exiting manual mode, turn off lights and return to automatic control
-      digitalWrite(HEADLIGHT_PIN, LOW);
-      digitalWrite(PARKING_PIN, LOW);
-      Serial.println("Exiting Manual Mode, Resetting Lights");
-      webSerial.println("Exiting Manual Mode, Resetting Lights");
-      updateLights(false); // Immediately apply automatic logic
+  if (enable) {
+    Serial.println("Manual override enabled.");
+    webSerial.println("Manual override enabled.");
+  } else {
+    digitalWrite(HEADLIGHT_PIN, LOW);
+    digitalWrite(PARKING_PIN, LOW);
+    lightsOn = false;
+    Serial.println("Exiting Manual Mode, Resetting Lights");
+    webSerial.println("Exiting Manual Mode, Resetting Lights");
   }
 }
 
@@ -308,19 +308,13 @@ void setup() {
   
   server.on("/manual-mode", HTTP_POST, [](AsyncWebServerRequest *request) {
     if (request->hasParam("enabled")) {
-        bool enabled = request->getParam("enabled")->value() == "true";
-        manualOverride = enabled;
-        
-        if (!enabled) {
-            // Return to automatic control
-            digitalWrite(HEADLIGHT_PIN, LOW);
-            digitalWrite(PARKING_PIN, LOW);
-        }
-        
-        request->send(200, "application/json", 
-            String("{\"success\":") + (enabled ? "true" : "false") + "}");
+      bool enabled = request->getParam("enabled")->value() == "true";
+      setManualOverride(enabled); 
+  
+      String response = "{\"success\":true,\"manualOverride\":" + String(enabled ? "true" : "false") + "}";
+      request->send(200, "application/json", response);
     } else {
-        request->send(400, "text/plain", "Bad request");
+      request->send(400, "text/plain", "Bad request");
     }
   });
 
