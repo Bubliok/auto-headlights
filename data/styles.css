@@ -238,6 +238,35 @@ button:hover, input[type="submit"]:hover {
     opacity: 0.7;
 }
 
+@media (max-width: 600px) {
+    .manual-control-container {
+        flex-direction: column;
+        gap: 15px;
+    }
+
+    .manual-control {
+        flex-direction: column;
+        gap: 15px;
+        align-items: center;
+    }
+
+    .manual-control button {
+        width: 100%;
+        max-width: 300px;
+    }
+
+    .button-group {
+        flex-direction: column;
+        gap: 15px;
+    }
+
+    .button-group button,
+    .button-group input[type="submit"] {
+        width: 100%;
+        max-width: 300px;
+    }
+}
+
 #headlights-toggle {
     background-color: #e74c3c;
 }
