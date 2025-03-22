@@ -38,6 +38,7 @@ bool ignOverride = false;
 bool ignWasOn = false;
 bool manualOverride = false;
 
+
 AsyncWebServer server(80);
 AsyncWebSerial webSerial;
 
@@ -114,6 +115,41 @@ String processor(const String& var){
         }
     }
   }
+
+  void welcomeLights(int lightLevel) {
+    static bool welcomeLightsActive = false;
+    static bool headlightsActive = false;
+    static unsigned long welcomeStartTime = 0;
+    static unsigned long headlightsStartTime = 0;
+
+    if (digitalRead(UNLOCK_PIN) == HIGH) {
+        webSerial.println("Unlock signal detected.");
+
+        digitalWrite(PARKING_PIN, HIGH); 
+        welcomeLightsActive = true;
+        welcomeStartTime = millis();
+
+        if (lightLevel < settings["on_threshold"]) { 
+            webSerial.println("Dark environment detected, turning on headlights.");
+            
+            digitalWrite(HEADLIGHT_PIN, HIGH);
+            headlightsActive = true;
+            headlightsStartTime = millis();
+        }
+    }
+
+    if (headlightsActive && millis() - headlightsStartTime >= 10000) {
+        digitalWrite(HEADLIGHT_PIN, LOW);
+        headlightsActive = false;
+        webSerial.println("Headlights timeout, turning off.");
+    }
+
+    if (welcomeLightsActive && millis() - welcomeStartTime >= settings["welcome_lights"]) {
+        digitalWrite(PARKING_PIN, LOW);
+        welcomeLightsActive = false;
+        webSerial.println("Welcome lights timeout, turning off.");
+    }
+}
   
   bool checkLightCondition(int lightLevel) {
     static unsigned long brightStartTime = 0;
@@ -350,6 +386,7 @@ void loop() {
   bool shouldBeOn = checkLightCondition(lightLevel);
 
   goodbyeLights(lightLevel);
+  welcomeLights(lightLevel);
   updateLights(shouldBeOn);
 
   ElegantOTA.loop();
