@@ -93,8 +93,8 @@ String processor(const String& var){
             ignWasOn = false;
             ignOffTime = millis();
             ignTimeoutActive = true;
-            Serial.println("ACC turned off, activating goodbye lights...");
-            webSerial.println("ACC turned off, activating goodbye lights...");
+            Serial.println("IGN turned off, activating goodbye lights...");
+            webSerial.println("IGN turned off, activating goodbye lights...");
         }
   
         if (ignTimeoutActive) {
@@ -121,9 +121,12 @@ String processor(const String& var){
     static bool headlightsActive = false;
     static unsigned long welcomeStartTime = 0;
     static unsigned long headlightsStartTime = 0;
+    static bool unlockSignal = false;
 
-    if (digitalRead(UNLOCK_PIN) == HIGH) {
+    if (digitalRead(UNLOCK_PIN) == HIGH && !unlockSignal) {
+        unlockSignal = true;
         webSerial.println("Unlock signal detected.");
+        Serial.println("Unlock signal detected.");
 
         digitalWrite(PARKING_PIN, HIGH); 
         welcomeLightsActive = true;
@@ -136,6 +139,9 @@ String processor(const String& var){
             headlightsActive = true;
             headlightsStartTime = millis();
         }
+    }
+    if (digitalRead(UNLOCK_PIN) == LOW) {
+        unlockSignal = false;
     }
 
     if (headlightsActive && millis() - headlightsStartTime >= 10000) {
@@ -239,28 +245,12 @@ void setManualOverride(bool enable) {
   }
 }
 
-
-
 void debug(int lightLevel) {
   Serial.print("Light Level: ");
   Serial.println(lightLevel);
-  // Serial.print("Night Mode: ");
-  // Serial.println(isNightMode ? "Yes" : "No");
-  // Serial.print("Lights are: ");
-  // Serial.println(lightsOn ? "Yes" : "No");
-  // Serial.println();
   
   webSerial.print("Light Level: ");
   webSerial.println(lightLevel);
-  // webSerial.print("Night Mode: ");
-  // webSerial.println(isNightMode ? "Yes" : "No");
-  // webSerial.print("Lights are: ");
-  // webSerial.println(lightsOn ? "Yes" : "No");
-  // webSerial.println();
-  // bool accState = digitalRead(ACC_PIN);
-  // Serial.print("ACC State: ");
-  // Serial.println(accState);
-
 }
 
 // -------------------------------------------------------------
