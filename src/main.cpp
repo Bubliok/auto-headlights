@@ -8,22 +8,23 @@
 #include <ElegantOTA.h>
 #include <map>
 
-// Defaults
 #define HEADLIGHT_PIN 25
 #define LDR_PIN 34
 #define IGN_PIN 33
 #define PARKING_PIN 32
 #define UNLOCK_PIN 35
 
+// Defaults
 std::map<String, int> settings = 
     {
-        {"on_threshold", 1700},
-        {"off_threshold", 2000},
+        {"on_threshold", 1800},
+        {"off_threshold", 2100},
         {"hysteresis", 300},
-        {"sample_count", 25},
+        {"sample_count", 20},
         {"read_delay", 200},
-        {"goodbye_lights", 30000},
-        {"welcome_lights", 15000}
+        {"goodbye_lights", 45000},
+        {"welcome_lights", 30000},
+        {"welcome_headlights_timeout", 10000}
     };
 
 std::map<String, int> defaults = settings;
@@ -38,7 +39,6 @@ bool ignOverride = false;
 bool ignWasOn = false;
 bool manualOverride = false;
 
-
 AsyncWebServer server(80);
 AsyncWebSerial webSerial;
 
@@ -51,7 +51,9 @@ int readLDR();
 void goodbyeLights(int lightLevel);
 bool checkLightCondition(int lightLevel);
 void updateLights(bool shouldBeOn);
+void welcomeLights(int lightLevel);
 void debug(int lightLevel);
+void setManualLights(bool headlights, bool parking);
 
 String processor(const String& var){
     if (settings.count(var)) {
@@ -155,7 +157,7 @@ String processor(const String& var){
         welcomeLightsActive = false;
         webSerial.println("Welcome lights timeout, turning off.");
     }
-}
+  }
   
   bool checkLightCondition(int lightLevel) {
     static unsigned long brightStartTime = 0;
@@ -195,12 +197,12 @@ void updateLights(bool shouldBeOn) {
   }
 
   if (shouldBeOn) {
-      if (!lightsOn) {
-          digitalWrite(HEADLIGHT_PIN, HIGH);
-          digitalWrite(PARKING_PIN, HIGH);
-          lightsOn = true;
-          Serial.println("Lights On");
-          webSerial.println("Lights On");
+    if (!lightsOn) {
+        digitalWrite(HEADLIGHT_PIN, HIGH);
+        digitalWrite(PARKING_PIN, HIGH);
+        lightsOn = true;
+        Serial.println("Lights On");
+        webSerial.println("Lights On");
       }
   } else {
       if (lightsOn) {
@@ -289,7 +291,7 @@ void setup() {
   loadPreferences();
 
   pinMode(LDR_PIN, INPUT);
-  pinMode(UNLOCK_PIN, INPUT);
+  pinMode(UNLOCK_PIN, INPUT_PULLDOWN);
   pinMode(IGN_PIN, INPUT_PULLDOWN);
   pinMode(HEADLIGHT_PIN, OUTPUT);
   pinMode(PARKING_PIN, OUTPUT);
@@ -382,5 +384,5 @@ void loop() {
   ElegantOTA.loop();
   webSerial.loop();
   debug(lightLevel);
-  delay(200);
+  delay(50);
 }
