@@ -124,6 +124,16 @@ String processor(const String& var){
     static unsigned long welcomeStartTime = 0;
     static unsigned long headlightsStartTime = 0;
     static bool unlockSignal = false;
+    static bool wasIgnOn = false;
+
+    bool isIgnOn = digitalRead(IGN_PIN) == HIGH;
+
+    if (isIgnOn) {
+        welcomeLightsActive = false;
+        headlightsActive = false;
+        unlockSignal = false;
+        return;
+    }
 
     if (digitalRead(UNLOCK_PIN) == HIGH && !unlockSignal) {
         unlockSignal = true;
@@ -153,9 +163,11 @@ String processor(const String& var){
     }
 
     if (welcomeLightsActive && millis() - welcomeStartTime >= settings["welcome_lights"]) {
-        digitalWrite(PARKING_PIN, LOW);
+        if (digitalRead(IGN_PIN) == LOW) {
+            digitalWrite(PARKING_PIN, LOW);
+            webSerial.println("Welcome lights timeout, turning off.");
+        }
         welcomeLightsActive = false;
-        webSerial.println("Welcome lights timeout, turning off.");
     }
   }
   
