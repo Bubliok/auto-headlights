@@ -129,6 +129,9 @@ String processor(const String& var){
     bool isIgnOn = digitalRead(IGN_PIN) == HIGH;
 
     if (isIgnOn) {
+        if (lightLevel >= settings["on_threshold"]) {
+            digitalWrite(PARKING_PIN, LOW);
+        }
         welcomeLightsActive = false;
         headlightsActive = false;
         unlockSignal = false;
